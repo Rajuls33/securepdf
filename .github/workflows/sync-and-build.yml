@@ -24,6 +24,8 @@ jobs:
           git remote add upstream https://github.com/storytold/pdfcraft.git || true
           git fetch upstream main
           git checkout upstream/main -- .
+          # Remove upstream workflows so GITHUB_TOKEN doesn't reject workflow file updates
+          rm -rf .github/workflows/ci.yml .github/workflows/test.yml 2>/dev/null || true
           git checkout HEAD -- zerofye-overlay .github/workflows/sync-and-build.yml
           git add -A
           git commit -m "chore: sync upstream pdfcraft" || echo "Already up to date"
@@ -108,4 +110,5 @@ jobs:
             cp "target/${{ matrix.target }}/release/${{ matrix.bin_name }}" "dist-release/${{ matrix.out_name }}"
           fi
           gh release create "$TAG" dist-release/* --title "Zerofye securepdf $TAG" --notes "Automated Zerofye build synced from upstream." || gh release upload "$TAG" dist-release/* --clobber
+
 
