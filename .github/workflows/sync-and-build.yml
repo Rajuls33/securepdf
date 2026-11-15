@@ -60,5 +60,7 @@ jobs:
           tag_name: v0.21.1
           files: |
             target/${{ matrix.target }}/release/${{ matrix.bin_name }}
+            dist/release/*.msi
+            dist/release/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
