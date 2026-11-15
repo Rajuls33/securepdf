@@ -1,21 +1,16 @@
 ﻿name: Upstream Mirror & Zerofye Release Build
 
 on:
-  schedule:
-    - cron: '0 */6 * * *'
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
   sync-upstream:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      tag: ${{ steps.ver.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Fast-Forward Mirror from Upstream
         run: |
@@ -24,31 +19,65 @@ jobs:
           git remote add upstream https://github.com/storytold/pdfcraft.git || true
           git fetch upstream main
           git checkout upstream/main -- .
-          # Remove upstream workflows so GITHUB_TOKEN doesn't reject workflow file updates
           rm -rf .github/workflows/ci.yml .github/workflows/test.yml 2>/dev/null || true
           git checkout HEAD -- zerofye-overlay .github/workflows/sync-and-build.yml
           git add -A
           git commit -m "chore: sync upstream pdfcraft" || echo "Already up to date"
           git push origin main
 
-      - name: Extract Release Version
-        id: ver
-        run: |
-          V=$(grep -m1 '^version' Cargo.toml | cut -d '"' -f2)
-          echo "tag=v$V" >> $GITHUB_OUTPUT
-
   build-release:
     needs: sync-upstream
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            bin_name: pdfcraft.exe
-            out_name: securepdf-windows-x64.exe
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             bin_name: pdfcraft
             out_name: securepdf-linux-x64
-          
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin_name: pdfcraft.exe
+            out_name: securepdf-windows-x64.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply Zerofye Overlay (Build-Time Only)
+        shell: pwsh
+        run: |
+          if (Test-Path "zerofye-overlay/apply.js") {
+            node zerofye-overlay/apply.js
+          }
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Setup WiX v5 (Windows MSI Installer)
+        if: matrix.os == 'windows-latest'
+        run: dotnet tool install --global wix --version 5.0.0
+
+      - name: Build Release Binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build Windows MSI Installer & Portable Zip
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          if (Test-Path "packaging/windows/package.ps1") {
+            & packaging/windows/package.ps1
+          }
+
+      - name: Upload Release Assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.21.1
+          files: |
+            target/${{ matrix.target }}/release/${{ matrix.bin_name }}
+            dist/release/*.msi
+            dist/release/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
