@@ -39,20 +39,8 @@ jobs:
         with:
           target: ${{ matrix.target }}
 
-      - name: Setup WiX v5 (Windows MSI Installer)
-        if: matrix.os == 'windows-latest'
-        run: dotnet tool install --global wix --version 5.0.0
-
       - name: Build Release Binary
         run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Build Windows MSI Installer & Portable Zip
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          if (Test-Path "packaging/windows/package.ps1") {
-            & packaging/windows/package.ps1
-          }
 
       - name: Upload Release Assets to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -60,7 +48,5 @@ jobs:
           tag_name: v0.21.1
           files: |
             target/${{ matrix.target }}/release/${{ matrix.bin_name }}
-            dist/release/*.msi
-            dist/release/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
