@@ -6,27 +6,7 @@ on:
     branches: [ main ]
 
 jobs:
-  sync-upstream:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Fast-Forward Mirror from Upstream
-        run: |
-          git config user.name "Zerofye Bot"
-          git config user.email "bot@zerofye.dev"
-          git remote add upstream https://github.com/storytold/pdfcraft.git || true
-          git fetch upstream main
-          git checkout upstream/main -- .
-          rm -rf .github/workflows/ci.yml .github/workflows/test.yml 2>/dev/null || true
-          git checkout HEAD -- zerofye-overlay .github/workflows/sync-and-build.yml
-          git add -A
-          git commit -m "chore: sync upstream pdfcraft" || echo "Already up to date"
-          git push origin main
-
   build-release:
-    needs: sync-upstream
     strategy:
       matrix:
         include:
